@@ -1,12 +1,16 @@
 import numpy as np
 
 class BlockBuffer(object):
-    """Stores an iterable and divides it into blocks
+    """Divides items from an iterable into blocks.
+
+    Accepts a list (or other iterable) of data. Adds each item from the list
+    into a block of size `block_size`. The class is itself a generator and
+    yields blocks.
     """
-    _buffer = []
 
     def __init__(self, block_size):
         self._block_size = block_size
+        self._buffer = []
         self.reset()
 
     def reset(self):
@@ -69,12 +73,15 @@ class BlockBufferNP(BlockBuffer):
         """
         self._buffer = np.append(self._buffer, data)
 
-# Clean up. Not readable
 class BlockBufferTimeWrapper(object):
-    _times = []
-    _last = None
+    """Wrapper to BlockBuffer that tracks start, end time of blocks.
+
+    Accepts timestamped input data. Produces timestamped blocks.
+    """
     def __init__(self, block_buffer):
         self._block_buffer = block_buffer
+        self._times = []
+        self._last = None
 
     def __iter__(self):
         for block in self._block_buffer:
@@ -83,6 +90,7 @@ class BlockBufferTimeWrapper(object):
             l = len(block)
             while l > 0:
                 # somewhat important >= vs > decision
+                # This is absolutely unreadable
                 if self._times[0][0] >= l:
                     t = self._len2time(l, *self._times[0])
                     end = self._times[0][1] + t
@@ -98,10 +106,16 @@ class BlockBufferTimeWrapper(object):
 
     @staticmethod
     def _len2time(segment_length, length, start, end):
+        """
+        Args:
+            segment_length:
+            length:
+            start:
+            end:
+        """
         return (end - start) * float(segment_length) / length
 
     def put(self, data, start_time, end_time):
-        """Add data to the buffer. Process available blocks."""
-
+        """Add data to the buffer."""
         self._block_buffer.put(data)
         self._times.append([len(data), start_time, end_time])

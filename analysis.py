@@ -14,29 +14,53 @@ class Analyzer:
         pass
 
 class SimpleAnalyzer:
+    """Calls `analyze` on input data.
+
+    Attributes:
+        _analyze:
+        _callbacks:
+    """
     def __init__(self, analyze, callbacks):
         self._analyze = analyze
         self._callbacks = callbacks
 
     def put(self, data, start_time, end_time):
+        """Calls `analyze` on data.
+
+        Args:
+            data: any acceptable input to `analyze`
+            start_time: timestamp
+            end_time: timestamp
+        """
+
         val = self._analyze(data)
         for cb in self._callbacks:
             cb(val, start_time, end_time)
 
-# calls analyze on every block
 class BlockAnalyzer(Analyzer):
-    """Breaks input data into blocks of size `block_size`.
-    Calls the analyze function on each block.
+    """Breaks input data into blocks of size `block_size`. Calls `analyze`
+    on each block.
     """
     def __init__(self, block_buffer, analyze, callbacks):
+        """
+        Args:
+            block_buffer: An instance of BlockBuffer
+            analyze: A function accepting and returning data
+            callbacks: A list of functions to be called to analyzed data
+        """
         self._buffer = buffer.BlockBufferTimeWrapper(block_buffer)
         self._analyze = analyze
         self._callbacks = callbacks
 
     def put(self, data, start_time, end_time):
-        """Add data to the buffer. Process available blocks."""
-        self._buffer.put(data, start_time, end_time)
+        """Add data to the buffer. Process available blocks.
 
+        Args:
+            data: Any acceptable input to `analyze`. Must be an iterable.
+            start_time: The start time of the data.
+            end_time: The end time of the data.
+        """
+        self._buffer.put(data, start_time, end_time)
         for (block, blk_start, blk_end) in self._buffer:
             val = self._analyze(block)
             for cb in self._callbacks:
@@ -44,6 +68,13 @@ class BlockAnalyzer(Analyzer):
 
 
 class NeighborAnalyzer(Analyzer):
+    """Determines if a unit of data is in a neighbhorhood that satisfies
+    `is_valid`.
+
+    A neighbhorhood is a group of `length` adjacent data. If a datum is
+    in any neighbhorhood satisfying `is_valid`, True is returned for the
+    time window of the datum. Else, False is returned.
+    """
 
     def __init__(self, analyze, length, callbacks):
         self._analyze = analyze
@@ -56,9 +87,6 @@ class NeighborAnalyzer(Analyzer):
         self._blocks = collections.deque(maxlen=self._length)
 
     def put(self, data, start_time, end_time):
-        """
-        Assumes that data is received in order, contiguously
-        """
         self._blocks.append({
             'block': data,
             'start_time': start_time,
@@ -113,8 +141,6 @@ class WindowAnalyzer(Analyzer):
 
     def put(self, data, start_time, end_time):
         """
-        While it starts after end, dump and ship.
-        While it overlaps, add and ship.
         """
         # Ignore data ending before current window starts
         if end_time < self._start_time:

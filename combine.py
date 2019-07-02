@@ -1,14 +1,21 @@
 class Combiner():
-    _windows = []
+    """Merges all data from a time window into a dictionary.
+
+    A list of topics are specified on initialization. The data from a time
+    window is not sent to the callbacks until there is data for each topic.
+    """
 
     def __init__(self, start_time, window_duration, topics, callbacks):
         self._last_time = start_time
         self._window_duration = window_duration
         self.topics = topics
         self._callbacks = callbacks
+        self._windows = []
         self._add_window()
 
     def _add_window(self):
+        """Appends a blank new window to the buffer, advances the time.
+        """
         self._windows.append(
             {
                 'data': {topic: None for topic in self.topics},
@@ -20,10 +27,25 @@ class Combiner():
         self._last_time += self._window_duration
 
     def _is_window_ready(self, index):
+        """Determines if every topic in a window has been marked as handled.
+
+        Args:
+            index: The index of a window in the window buffer. This window
+                is checked for readiness.
+        Returns:
+            True if the status of all topics in the window have True status.
+        """
         return all(self._windows[index]['statuses'].values())
 
     @staticmethod
     def _overlap(start_time, end_time, window_start_time, window_end_time):
+        """
+
+        Args:
+
+        Returns:
+            A number [0, 1.0] that gives the proportion of overlap.
+        """
         if start_time > window_end_time or end_time < window_start_time:
             return 0
         start = max(start_time, window_start_time)
@@ -33,6 +55,13 @@ class Combiner():
     # If there is not at least one window add a window
     # add windows until you have somewhere to put this viable data!
     def put(self, topic, data, start_time, end_time):
+        """
+        Args:
+            topic:
+            data:
+            start_time:
+            end_time:
+        """
         # Add a window if all have been sent
         if not self._windows:
             self._add_window()
@@ -63,8 +92,8 @@ class Combiner():
             if self._is_window_ready(i):
                 for cb in self._callbacks:
                     cb(self._windows[i]['data'],
-                        self._windows[i]['start_time'],
-                        self._windows[i]['end_time'])
+                       self._windows[i]['start_time'],
+                       self._windows[i]['end_time'])
                 del self._windows[i]
             else:
                 i += 1
