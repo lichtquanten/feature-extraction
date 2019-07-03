@@ -47,11 +47,11 @@ class PyAudio(Source):
 
     def __enter__(self):
         self._p = pyaudio.PyAudio()
-        self.t_stream = self._p.open(format=pyaudio.paInt16,
-                                     channels=self.channels,
-                                     rate=self.rate,
-                                     input=True,
-                                     frames_per_buffer=self.frames_per_buffer)
+        self._stream = self._p.open(format=pyaudio.paInt16,
+                                    channels=self.channels,
+                                    rate=self.rate,
+                                    input=True,
+                                    frames_per_buffer=self.frames_per_buffer)
         return self
 
     def __exit__(self, *exc):
