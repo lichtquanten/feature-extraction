@@ -2,9 +2,9 @@ from abc import ABCMeta, abstractmethod
 import pyaudio
 import rosbag
 from rospy_msg_converter import convert_ros_message_to_dictionary
-# import Queue
-# import time
-# import rospy
+import Queue
+import time
+import rospy
 
 class Source(object):
     __metaclass__ = ABCMeta
@@ -88,27 +88,35 @@ class ROSbag(Source):
     def __exit__(self, *exc):
         self._bag.__exit__(None, None, None)
 
-# class ROSlive(Source):
-#     def __init__(self, preprocess, topic, msg_type):
-#         self.preprocess = preprocess
-#         self._topic = topic
-#         self._type = msg_type
-#         self._buffer = Queue.Queue()
-#
-#     def __iter__(self):
-#         while True:
-#             try:
-#                 yield self._buffer.get()
-#             except Queue.Empty:
-#                 time.sleep(0.001)
-#
-#     def _callback(self, msg):
-#         self._buffer.put(self.preprocess(msg))
-#
-#     def __enter_(self):
-#         self._subscriber = rospy.Subscriber(
-#             self._topic, self._type, self._callback)
-#         return self
-#
-#     def __exit(self):
-#         self._subscriber.stop()
+class ROSlive(Source):
+    def __init__(self, preprocess, topic, msg_type, rate, start_time=None):
+        self.preprocess = preprocess
+        self._topic = topic
+        self._type = msg_type
+        self._buffer = Queue.Queue()
+        self.chunk_duration = 1 / float(rate)
+        if start_time is None:
+            t = rospy.Time.now()
+            self.start_time = t.secs + t.nsecs / (10 ** -9)
+        else:
+            self.start_time = start_time
+
+    def __iter__(self):
+        while True:
+            try:
+                yield self._buffer.get(block=False)
+            except Queue.Empty:
+                time.sleep(0.001)
+
+    def _callback(self, msg):
+        msg = convert_ros_message_to_dictionary(msg)
+        start_time = msg['time']['secs'] + msg['time']['nsecs'] / (10 ** -9)
+        self._buffer.put((self.preprocess(msg), start_time, start_time + self.chunk_duration))
+
+    def __enter__(self):
+        self._subscriber = rospy.Subscriber(
+            self._topic, self._type, self._callback)
+        return self
+
+    def __exit__(self, *exc):
+        self._subscriber.unregister()
