@@ -57,5 +57,5 @@ def extract(source, sink):
             comb.put('pitch_std', pitch_std, w_start, w_end)
 
         # Process the combiner
-        for (bundle, start, end) in comb:
+        for (bundle, b_start, b_end) in comb:
             sink.put(bundle, start, end)
