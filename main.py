@@ -13,16 +13,10 @@ def main():
         frames_per_buffer=1024) as audio_source, \
          sink.CSV(WINDOW_DURATION, 'out.csv') as audio_sink:
 
-        feature_extractor.extract(audio_source, audio_sink)
+        feature_extractor.audio(audio_source, audio_sink)
 
 if __name__ == '__main__':
     main()
-
-
-    # with source.ROSbag(
-    #     lambda x: np.fromstring(x['data'], dtype=np.int16),
-    #     filename='bag.bag',
-    #     topic='pid1/chunk') as audio_source:
 
     # with source.ROSLive(
     #     lambda x: np.fromstring(x['data'], dtype=np.int16),

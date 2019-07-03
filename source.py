@@ -1,9 +1,10 @@
 from abc import ABCMeta, abstractmethod
 import pyaudio
+import rosbag
+from rospy_msg_converter import convert_ros_message_to_dictionary
 # import Queue
 # import time
 # import rospy
-# import rosbag
 
 class Source(object):
     __metaclass__ = ABCMeta
@@ -31,7 +32,7 @@ class PyAudio(Source):
         self._stream = None
 
         self.start_time = 0
-        self._chunk_duration = frames_per_buffer / float(self.rate)
+        self.chunk_duration = frames_per_buffer / float(self.rate)
 
     def __iter__(self):
         return self
@@ -40,17 +41,17 @@ class PyAudio(Source):
         out = (
             self.preprocess(self._stream.read(self.frames_per_buffer)),
             self.start_time,
-            self.start_time + self._chunk_duration)
-        self.start_time += self._chunk_duration
+            self.start_time + self.chunk_duration)
+        self.start_time += self.chunk_duration
         return out
 
     def __enter__(self):
         self._p = pyaudio.PyAudio()
-        self._stream = self._p.open(format=pyaudio.paInt16,
-                                    channels=self.channels,
-                                    rate=self.rate,
-                                    input=True,
-                                    frames_per_buffer=self.frames_per_buffer)
+        self.t_stream = self._p.open(format=pyaudio.paInt16,
+                                     channels=self.channels,
+                                     rate=self.rate,
+                                     input=True,
+                                     frames_per_buffer=self.frames_per_buffer)
         return self
 
     def __exit__(self, *exc):
@@ -58,7 +59,36 @@ class PyAudio(Source):
         self._stream.close()
         self._p.terminate()
 
-# class ROSLive(Source):
+class ROSbag(Source):
+    def __init__(self, preprocess, filename, topic):
+        self.preprocess = preprocess
+        self._filename = filename
+        self._topic = topic
+        self.start_time = None
+        self.rate = 25
+        self.chunk_duration = 1 / float(self.rate)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        topic, msg, t = next(self._messages)
+        msg = convert_ros_message_to_dictionary(msg)
+        start = msg['header']['stamp']['secs'] + msg['header']['stamp']['nsecs'] * (10 ** -9)
+        return self.preprocess(msg), start, start + self.chunk_duration
+
+    def __enter__(self):
+        self._bag = rosbag.Bag(self._filename, 'r')
+        self._bag.__enter__()
+        self.start_time = self._bag.get_start_time()
+        self._messages = self._bag.read_messages(
+            connection_filter=lambda topic, *args: topic == self._topic)
+        return self
+
+    def __exit__(self, *exc):
+        self._bag.__exit__(None, None, None)
+
+# class ROSlive(Source):
 #     def __init__(self, preprocess, topic, msg_type):
 #         self.preprocess = preprocess
 #         self._topic = topic
@@ -82,25 +112,3 @@ class PyAudio(Source):
 #
 #     def __exit(self):
 #         self._subscriber.stop()
-#
-# class ROSbag(Source):
-#     def __init__(self, preprocess, filename, topic):
-#         self.preprocess = preprocess
-#         self._filename = filename
-#         self._topic = topic
-#
-#     def __iter__(self):
-#         return self
-#
-#     def next(self):
-#         topic, msg, t = next(self._messages)
-#         return self.preprocess(msg)
-#
-#     def __enter__(self):
-#         self._bag = rosbag.Bag(self._filename, 'r')
-#         self._messages = self._bag.__enter__().read_messages(
-#             connection_filter=lambda topic, *args: topic == self._topic)
-#         return self
-#
-#     def __exit__(self, *exc):
-#         self._bag.__exit__(None, None, None)
