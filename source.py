@@ -1,0 +1,106 @@
+from abc import ABCMeta, abstractmethod
+import pyaudio
+# import Queue
+# import time
+# import rospy
+# import rosbag
+
+class Source(object):
+    __metaclass__ = ABCMeta
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def __iter__(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        pass
+
+
+class PyAudio(Source):
+    def __init__(self, preprocess, channels, rate, frames_per_buffer):
+        self.preprocess = preprocess
+        self.channels = channels
+        self.rate = rate
+        self.frames_per_buffer = frames_per_buffer
+        self._p = None
+        self._stream = None
+
+        self.start_time = 0
+        self._chunk_duration = frames_per_buffer / float(self.rate)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        out = (
+            self.preprocess(self._stream.read(self.frames_per_buffer)),
+            self.start_time,
+            self.start_time + self._chunk_duration)
+        self.start_time += self._chunk_duration
+        return out
+
+    def __enter__(self):
+        self._p = pyaudio.PyAudio()
+        self._stream = self._p.open(format=pyaudio.paInt16,
+                                    channels=self.channels,
+                                    rate=self.rate,
+                                    input=True,
+                                    frames_per_buffer=self.frames_per_buffer)
+        return self
+
+    def __exit__(self, *exc):
+        self._stream.stop_stream()
+        self._stream.close()
+        self._p.terminate()
+
+# class ROSLive(Source):
+#     def __init__(self, preprocess, topic, msg_type):
+#         self.preprocess = preprocess
+#         self._topic = topic
+#         self._type = msg_type
+#         self._buffer = Queue.Queue()
+#
+#     def __iter__(self):
+#         while True:
+#             try:
+#                 yield self._buffer.get()
+#             except Queue.Empty:
+#                 time.sleep(0.001)
+#
+#     def _callback(self, msg):
+#         self._buffer.put(self.preprocess(msg))
+#
+#     def __enter_(self):
+#         self._subscriber = rospy.Subscriber(
+#             self._topic, self._type, self._callback)
+#         return self
+#
+#     def __exit(self):
+#         self._subscriber.stop()
+#
+# class ROSbag(Source):
+#     def __init__(self, preprocess, filename, topic):
+#         self.preprocess = preprocess
+#         self._filename = filename
+#         self._topic = topic
+#
+#     def __iter__(self):
+#         return self
+#
+#     def next(self):
+#         topic, msg, t = next(self._messages)
+#         return self.preprocess(msg)
+#
+#     def __enter__(self):
+#         self._bag = rosbag.Bag(self._filename, 'r')
+#         self._messages = self._bag.__enter__().read_messages(
+#             connection_filter=lambda topic, *args: topic == self._topic)
+#         return self
+#
+#     def __exit__(self, *exc):
+#         self._bag.__exit__(None, None, None)
