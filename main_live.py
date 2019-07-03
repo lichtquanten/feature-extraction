@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import source
+import sink
+import feature_extractor
 import numpy as np
 import rospy
 from ros_speech2text.msg import AudioChunk
@@ -12,10 +14,11 @@ def main():
         lambda m: np.fromstring(m['chunk'], np.int16),
         '/mic1/chunk',
         AudioChunk,
-        44100) as audio_source:
+        16000) as audio_source, \
+         sink.CSV(WINDOW_DURATION, 'out.csv') as audio_sink:
 
-        for audio in audio_source:
-            print audio
+
+        feature_extractor.audio(audio_source, audio_sink)
 
 if __name__ == '__main__':
     main()

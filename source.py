@@ -93,11 +93,11 @@ class ROSlive(Source):
         self.preprocess = preprocess
         self._topic = topic
         self._type = msg_type
+        self.rate = rate
         self._buffer = Queue.Queue()
-        self.chunk_duration = 1 / float(rate)
         if start_time is None:
             t = rospy.Time.now()
-            self.start_time = t.secs + t.nsecs / (10 ** -9)
+            self.start_time = t.secs + t.nsecs / (10 ** 9)
         else:
             self.start_time = start_time
 
@@ -110,8 +110,9 @@ class ROSlive(Source):
 
     def _callback(self, msg):
         msg = convert_ros_message_to_dictionary(msg)
-        start_time = msg['time']['secs'] + msg['time']['nsecs'] / (10 ** -9)
-        self._buffer.put((self.preprocess(msg), start_time, start_time + self.chunk_duration))
+        start_time = msg['time']['secs'] + msg['time']['nsecs'] / (10 ** 9)
+        data = self.preprocess(msg)
+        self._buffer.put((data, start_time, start_time + len(data) / float(self.rate)))
 
     def __enter__(self):
         self._subscriber = rospy.Subscriber(
