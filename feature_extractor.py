@@ -58,7 +58,7 @@ def audio(source, sink):
 
         # Process the combiner
         for (bundle, b_start, b_end) in comb:
-            sink.put(bundle, start, end)
+            sink.put(bundle, b_start, b_end)
 
 def face(source, sink):
     topics = [
