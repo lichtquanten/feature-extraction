@@ -18,7 +18,7 @@ def main():
          sink.CSV(WINDOW_DURATION, 'out.csv') as audio_sink:
 
 
-        feature_extractor.audio(audio_source, audio_sink)
+        audio_extractor.extract(audio_source, audio_sink)
 
 if __name__ == '__main__':
     main()

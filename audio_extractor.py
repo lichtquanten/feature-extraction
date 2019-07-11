@@ -9,7 +9,22 @@ def get_pitch(data, rate):
     pitch_o.set_unit('Hz')
     return (pitch_o(data)[0], pitch_o.get_confidence())
 
-def audio(source, sink):
+def extract(source, sink):
+    topics = [
+        'mean_volume',
+        'pitch',
+        'pitch_confidence',
+        'pitch_std',
+    ]
+    sink.set_topics(topics)
+
+def extract(source, sink, features):
+    # TO-DO: Uncomment lines if this part of code is implemented
+
+    # topics = []
+    # for feature in features:
+    #     topics.append(lookupTopicsForFeature(feature))
+
     topics = [
         'mean_volume',
         'pitch',
@@ -55,34 +70,6 @@ def audio(source, sink):
             pitch = [get_pitch(x, source.rate)[0] for x in windowf]
             pitch_std = np.std(pitch)
             comb.put('pitch_std', pitch_std, w_start, w_end)
-
-        # Process the combiner
-        for (bundle, b_start, b_end) in comb:
-            sink.put(bundle, b_start, b_end)
-
-def face(source, sink):
-    topics = [
-        'mean_rot_y'
-    ]
-    sink.set_topics(topics)
-
-    # Group the face info
-    windows = grouper.Window(source.start_time, sink.window_duration)
-
-    # Use a combiner to bundle the results
-    comb = combine.Combiner(source.start_time, sink.window_duration, topics)
-
-    for (chunk, start, end) in source:
-        # Put into the groupers
-        windows.put(chunk, start, end)
-
-        # Analyze the data from the groupers
-        for (window, w_start, w_end) in windows:
-            if not window:
-                mean_rot_y = None
-            else:
-                mean_rot_y = np.mean([x['head_pose']['rot_y'] for x in window])
-            comb.put('mean_rot_y', mean_rot_y, w_start, w_end)
 
         # Process the combiner
         for (bundle, b_start, b_end) in comb:
