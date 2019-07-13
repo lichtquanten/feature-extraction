@@ -10,7 +10,7 @@ import numpy as np
 class Grouper:
     __metaclass__ = ABCMeta
 
-    def __init__(self, callbacks):
+    def __init__(self):
         pass
 
     @abstractmethod
@@ -20,6 +20,30 @@ class Grouper:
     @abstractmethod
     def put(self, data, start_time, end_time):
         pass
+
+class Counter(Grouper):
+    """Counts how many consecutive units prior to a unit satisfy `is_valid`.
+    """
+    def __init__(self, is_valid):
+        self.is_valid = is_valid
+        self.counter = 0
+        self.buffer = []
+
+    def __iter__(self):
+        while self.buffer:
+            out = self.buffer.pop()
+            yield out['count'], out['start_time'], out['end_time']
+
+    def put(self, data, start_time, end_time):
+        self.buffer.append({
+            'count': self.counter,
+            'start_time': start_time,
+            'end_time': end_time
+        })
+        if self.is_valid(data):
+            self.counter += 1
+        else:
+            self.counter = 0
 
 class Block(Grouper):
     """Divides data into blocks of fixed length.
@@ -126,3 +150,53 @@ class Window(Grouper):
             self._next_window()
         # Add to the window that it ends in
         self._current['data'].append(data)
+class History(Grouper):
+    """Reports the last `length` entries.
+    """
+    def __init__(self, length):
+        """
+        Args:
+            length (int):
+        """
+        self.length = length
+        self.buffer = []
+        self.times = []
+
+    def __iter__(self):
+        """Returns the first `length` elements in the list"""
+        while len(self.buffer) > self.length:
+            out = self.buffer[:self.length], self.times[self.length][0], self.times[self.length][1]
+            del self.buffer[0]
+            del self.times[0]
+            yield out
+
+    def put(self, data, start_time, end_time):
+        self.buffer.append(data)
+        self.times.append((start_time, end_time))
+
+class Neighborhood(Grouper):
+    def __init__(self, is_valid, length):
+        self.is_valid = is_valid
+        self.length = length
+        self.buffer = []
+
+    def __iter__(self):
+        while len(self.buffer) > self.length:
+          # while not self.buffer[-1]['handled']:
+          if self.is_valid([x['data'] for x in self.buffer[:self.length]]):
+              for x in self.buffer:
+                  if not x['handled']:
+                      yield True, x['start_time'], x['end_time']
+                      x['handled'] = True
+          else:
+              if not self.buffer[0]['handled']:
+                  yield False, self.buffer[0]['start_time'], self.buffer[0]['end_time']
+          del self.buffer[0]
+
+    def put(self, data, start_time, end_time):
+        self.buffer.append({
+            'data': data,
+            'start_time': start_time,
+            'end_time': end_time,
+            'handled': False
+        })
