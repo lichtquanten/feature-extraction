@@ -1,24 +1,48 @@
-import source
-import sink
+import csv
 import numpy as np
-import feature_extractor
+
+from ros_speech2text.msg import AudioChunk
+from rospywrapper import Sink, ROSBagSource, ROSTopicSource, ROSBagSink, ROSTopicSink
+from std_msgs.msg import Float32
 
 WINDOW_DURATION = .1
 
-def main():
-    with source.PyAudio(
-        lambda x: np.fromstring(x, dtype=np.int16),
-        channels=1,
-        rate=44100,
-        frames_per_buffer=1024) as audio_source, \
-         sink.CSV(WINDOW_DURATION, 'out.csv') as audio_sink:
+class CSVSink(Sink):
+    def __init__(self, filename):
+        self.filename = filename
+        self._file = None
+        self._writer = None
 
-        feature_extractor.audio(audio_source, audio_sink)
+    def put(self, topic, data_class, data, t):
+        row = [t] + [data[key] for key in data]
+        self._writer.writerow(row)
+
+    def __enter__(self):
+        self._file = open(self.filename, 'w')
+        self._writer = csv.writer(self.file)
+        return self
+
+    def __exit__(self, *exc):
+        self._file.close()
+
+def main():
+    source = ROSBagSource(
+        topic='/mic1/chunk',
+        filename='bag.bag')
+    # source = ROSTopicSource(
+    #     topic='/mic1/chunk',
+    #     data_class=AudioChunk
+    # )
+
+    sink = ROSBagSink(filename='out.bag')
+    # sink = ROSTopicSink()
+    # sink = CSVSink(filename='out.csv')
+
+    with source, sink:
+        for msg, t in source:
+            data = np.fromstring(msg['data'], np.int16)
+            volume = np.mean(np.abs(data))
+            sink.put('/volume', Float32, np.mean(msg['data']), t)
 
 if __name__ == '__main__':
     main()
-
-    # with source.ROSLive(
-    #     lambda x: np.fromstring(x['data'], dtype=np.int16),
-    #     topic='pid1/chunk',
-    #     msg_type=AudioChunk) as audio_source:
